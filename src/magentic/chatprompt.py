@@ -45,6 +45,7 @@ class BaseChatPromptFunction(Generic[P, R]):
         return_type: type[R],
         functions: list[Callable[..., Any]] | None = None,
         model: OpenaiChatModel | None = None,
+        chain_of_thought: bool = None
     ):
         self._signature = inspect.Signature(
             parameters=parameters,
@@ -53,6 +54,7 @@ class BaseChatPromptFunction(Generic[P, R]):
         self._messages = messages
         self._functions = functions or []
         self._model = model or OpenaiChatModel()
+        self._chain_of_thought = chain_of_thought
 
         self._return_types = [
             type_
@@ -71,6 +73,10 @@ class BaseChatPromptFunction(Generic[P, R]):
     @property
     def return_types(self) -> list[type[R]]:
         return self._return_types.copy()
+
+    @property
+    def chain_of_thought(self) -> bool:
+        return self._chain_of_thought
 
     def format(self, *args: P.args, **kwargs: P.kwargs) -> list[Message[Any]]:
         """Format the message templates with the given arguments."""
@@ -97,6 +103,7 @@ class ChatPromptFunction(BaseChatPromptFunction[P, R], Generic[P, R]):
             messages=self.format(*args, **kwargs),
             functions=self._functions,
             output_types=self._return_types,
+            chain_of_thought=self._chain_of_thought
         )
         return cast(R, message.content)
 
@@ -134,6 +141,7 @@ def chatprompt(
     *messages: Message[Any],
     functions: list[Callable[..., Any]] | None = None,
     model: OpenaiChatModel | None = None,
+    chain_of_thought: bool = False
 ) -> ChatPromptDecorator:
     """Convert a function into an LLM chat prompt template.
 
@@ -192,6 +200,7 @@ def chatprompt(
             return_type=func_signature.return_annotation,
             functions=functions,
             model=model,
+            chain_of_thought=chain_of_thought
         )
         return cast(ChatPromptFunction[P, R], update_wrapper(prompt_function, func))  # type: ignore[redundant-cast]
 
